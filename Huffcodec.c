@@ -6,6 +6,7 @@
 
 typedef struct node{
   char symb;
+  int freq;
   struct node *left;
   struct node *right;
 } t_node;
@@ -43,7 +44,8 @@ void compress(FILE *fptIn, FILE *fptOut){
     int *freqs;         //frequencies of said symbols
     unsigned char c;
 
-    t_node *ptrees;
+    t_node **ptrees;
+    t_node *newNode;
     t_node ftree;
 
     allSymbols = (unsigned char *) calloc(BIGNUM, sizeof(unsigned char));
@@ -67,7 +69,32 @@ void compress(FILE *fptIn, FILE *fptOut){
 
     //build tree....
     //sort
-    mSort(char *cs, int *freqs);
+    mSort(allSymbols, freqs);
+
+    ptrees = (t_node **) malloc(sizeof(t_node *)*256);
+    for(i=0; i<256; i++){
+        ptrees[i] = (t_node *) malloc(sizeof(t_node));
+
+        ptrees[i]->symb = cs[i];
+        ptrees[i]->freq = freqs[i];
+        ptrees[i]->left = NULL;
+        ptrees[i]->right = NULL;
+    }
+
+    while(ptrees[1]!=NULL;){
+        newNode = (t_node *) malloc(sizeof(t_node));
+
+        newNode->left = ptrees[0];
+        newNode->right = ptrees[1];
+        newNode->freq = newNode->left->freq + newNode->right->freq;
+        newNode->symb = 0;
+
+        ptrees[0] = newNode;
+        ptrees[1] = NULL;
+
+        //sort
+    }
+
 }
 
 //returns 0 if c is not contained in list
@@ -112,4 +139,9 @@ void mSort(unsigned char *cs, int *freqs){
         len--;
     }while(swapped==1);
 
+}
+
+//sorts a list of tree nodes based on the freqs of their roots
+void sortTrees(t_node **trees){
+    
 }
