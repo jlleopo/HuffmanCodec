@@ -93,6 +93,7 @@ void compress(FILE *fptIn, FILE *fptOut){
         ptrees[1] = NULL;
 
         //sort
+        sortTrees(trees, 255);
     }
 
 }
@@ -142,6 +143,27 @@ void mSort(unsigned char *cs, int *freqs){
 }
 
 //sorts a list of tree nodes based on the freqs of their roots
-void sortTrees(t_node **trees){
-    
+void sortTrees(t_node **trees, int len){
+    int swapped;
+    t_node *temp;
+    int i;
+
+    //how the fuck do we sort nulls
+    do{
+        swapped = 0;
+        for(i=1; i<len; i++){
+            if(trees[i] == NULL){
+                //do nothing
+            }else if(trees[i-1] == NULL || trees[i-1]->freq > trees[i]->freq){
+                //swap
+                temp = trees[i-1];
+                trees[i-1] = trees[i];
+                trees[i] = trees[i-1];
+
+                swapped = 1;
+            }
+        }
+        len--;
+    }while(swapped==1);
+
 }
