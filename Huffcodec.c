@@ -12,10 +12,14 @@ typedef struct node{
 } t_node;
 
 void compress(FILE *fptIn, FILE *fptOut);
+int containedIn(unsigned char *list, unsigned char c, int *i);
+void mSort(unsigned char *cs, int *freqs);
+void sortTrees(t_node **trees, int len);
+
 
 void decompress(FILE *fptIn, FILE *fptOut);
 
-int main(int argc, unsigned char *argv[]){
+int main(int argc, char *argv[]){
     FILE *fptIn;
     FILE *fptOut;
 
@@ -43,10 +47,12 @@ void compress(FILE *fptIn, FILE *fptOut){
     unsigned char *allSymbols;   //list of symbols found in fptIn
     int *freqs;         //frequencies of said symbols
     unsigned char c;
+    int i;
+    int len;
 
     t_node **ptrees;
     t_node *newNode;
-    t_node ftree;
+    //t_node ftree;
 
     allSymbols = (unsigned char *) calloc(BIGNUM, sizeof(unsigned char));
     freqs = (int *) calloc(BIGNUM, sizeof(int));
@@ -71,17 +77,20 @@ void compress(FILE *fptIn, FILE *fptOut){
     //sort
     mSort(allSymbols, freqs);
 
-    ptrees = (t_node **) malloc(sizeof(t_node *)*256);
-    for(i=0; i<256; i++){
+    while(freqs[i]!=0) i++;
+    len = i;
+
+    ptrees = (t_node **) calloc(len, sizeof(t_node *));
+    for(i=0; i<len; i++){
         ptrees[i] = (t_node *) malloc(sizeof(t_node));
 
-        ptrees[i]->symb = cs[i];
+        ptrees[i]->symb = allSymbols[i];
         ptrees[i]->freq = freqs[i];
         ptrees[i]->left = NULL;
         ptrees[i]->right = NULL;
     }
 
-    while(ptrees[1]!=NULL;){
+    while(ptrees[1]!=NULL){
         newNode = (t_node *) malloc(sizeof(t_node));
 
         newNode->left = ptrees[0];
@@ -93,7 +102,7 @@ void compress(FILE *fptIn, FILE *fptOut){
         ptrees[1] = NULL;
 
         //sort
-        sortTrees(trees, 255);
+        sortTrees(ptrees, len);
     }
 
 }
@@ -111,8 +120,10 @@ int containedIn(unsigned char *list, unsigned char c, int *i){
     return 0;
 }
 
+//sorts cs by freqs in ascending order
+//tested: works
 void mSort(unsigned char *cs, int *freqs){
-    int i, j, k;
+    int i;
     int len=0;
     int swapped;
     char ctemp;
@@ -122,7 +133,7 @@ void mSort(unsigned char *cs, int *freqs){
 
     do{
         swapped = 0;
-        for(i=1; i<lens; i++){
+        for(i=1; i<len; i++){
             if(freqs[i-1] > freqs[i]){
                 //swap chars
                 ctemp=cs[i];
@@ -158,7 +169,7 @@ void sortTrees(t_node **trees, int len){
                 //swap
                 temp = trees[i-1];
                 trees[i-1] = trees[i];
-                trees[i] = trees[i-1];
+                trees[i] = temp;
 
                 swapped = 1;
             }
@@ -166,4 +177,11 @@ void sortTrees(t_node **trees, int len){
         len--;
     }while(swapped==1);
 
+}
+
+
+void decompress(FILE *fptIn, FILE *fptOut){
+    int i;
+
+    for(i=0;i<1000; i++) printf("I forgot to do this lol\t");
 }
