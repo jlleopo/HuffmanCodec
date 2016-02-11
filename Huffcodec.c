@@ -48,7 +48,7 @@ int main(int argc, char *argv[]){
 
 void compress(FILE *fptIn, FILE *fptOut){
     unsigned char *allSymbols;   //list of symbols found in fptIn
-    int *freqs;         //frequencies of said symbols
+    int *freqs;         //frequencies of symbols
     unsigned char c;
     int i;
     int len;
@@ -235,6 +235,8 @@ void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, uns
         bCodeList[i] = (char) strtol(codeList[i], NULL, 2);
     }
 
+    fclose(fptIn);
+    fptIn = fopen("test.txt", "rb");
     position = 8;
     while(fread(&c, 1, 1, fptIn) == 1){
         for(i=0; i<numCodes; i++){
@@ -246,20 +248,21 @@ void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, uns
 
         if(position > lengths[i]){
             //we have enough space to fit all of our pattern in the output byte
-            b |= (bCodeList[i] << position);
+            b |= (bCodeList[i] << (position - lengths[i]));
             position -= lengths[i];
         } else {
-            b |= (bCodeList[i] >> (position - lengths[i]));
+            b |= (bCodeList[i] >> (lengths[i] - position));
             fwrite(&b, 1, 1, fptOut);
             b = 0x0;
 
-            b |= (bCodeList[i] >> (8 - lengths[i] + position));
+            b |= (bCodeList[i] << (8 - lengths[i] + position));
             position = 8 - lengths[i] + position;
         }
 
 
 
     }
+    fwrite(&b, 1, 1, fptOut);
 }
 
 unsigned char makeBitmask(int length){
