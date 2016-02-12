@@ -17,10 +17,13 @@ void mSort(unsigned char *cs, int *freqs);
 void sortTrees(t_node **trees, int len);
 void formCodes(t_node *node, char *currentCode, char **codeList, unsigned char *symbolList, int *i);
 void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, unsigned char *symbolList);
-unsigned char makeBitmask(int length);
+unsigned int makeBitmask(int length);
+
+int print_t(t_node *tree);
 
 
 void decompress(FILE *fptIn, FILE *fptOut);
+int inCodeList(char code, unsigned char *codeList, int numCodes, int mask);
 
 int main(int argc, char *argv[]){
     FILE *fptIn;
@@ -116,6 +119,8 @@ void compress(FILE *fptIn, FILE *fptOut){
     symbolList = (unsigned char *) calloc(len, sizeof(unsigned char));
     i=0;
     formCodes(ptrees[0], currentCode, codeList, symbolList, &i);
+
+    if(len<10) print_t(ptrees[0]);
 
     writeOutCodes(fptIn, fptOut, codeList, len, symbolList);
 
@@ -223,40 +228,77 @@ void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, uns
     int *lengths;
     int i;
     int position;
+    int bitsLeft;
     unsigned char c; //input byte
-    unsigned char b; //output byte
-    unsigned char mask;
-    unsigned char *bCodeList;
+    unsigned char b = 0; //output byte
+    unsigned int mask;
+    unsigned int *bCodeList;
+
 
     lengths = (int *) calloc(numCodes, sizeof(int));
-    bCodeList = (unsigned char *) calloc(numCodes, sizeof(unsigned char));
+    bCodeList = (unsigned int *) calloc(numCodes, sizeof(unsigned int));
     for(i=0; i<numCodes; i++){
         lengths[i] = strlen(codeList[i]);
-        bCodeList[i] = (char) strtol(codeList[i], NULL, 2);
+        bCodeList[i] = (int) strtol(codeList[i], NULL, 2);
     }
 
-    fclose(fptIn);
-    fptIn = fopen("test.txt", "rb");
+    //write out a header
+    fwrite(&numCodes, sizeof(int), 1, fptOut);
+    for(i=0; i<numCodes; i++){
+        fwrite((symbolList+i), sizeof(unsigned char), 1, fptOut);
+        fwrite((lengths+i), sizeof(int), 1, fptOut);
+        fwrite((bCodeList+i), sizeof(char), 1, fptOut);
+    }
+
+    fptIn = freopen(NULL, "rb", fptIn);
     position = 8;
     while(fread(&c, 1, 1, fptIn) == 1){
         for(i=0; i<numCodes; i++){
             if(symbolList[i]==c) break;
         }
 
-        //make bitmask lengths[i] long
-        mask = makeBitmask(lengths[i]); // might not need this  yolo
+
 
         if(position > lengths[i]){
             //we have enough space to fit all of our pattern in the output byte
             b |= (bCodeList[i] << (position - lengths[i]));
             position -= lengths[i];
+        } else if(position == lengths[i]){
+                mask = makeBitmask(lengths[i]);
+
+                b |= bCodeList[i] & mask;
+                fwrite(&b, 1, 1, fptOut);
+                b = 0x0;
+                position = 8;
         } else {
+            //put all that we can in this byte before we write it out
             b |= (bCodeList[i] >> (lengths[i] - position));
             fwrite(&b, 1, 1, fptOut);
+
+            //start with new byte
             b = 0x0;
 
-            b |= (bCodeList[i] << (8 - lengths[i] + position));
-            position = 8 - lengths[i] + position;
+            //bits we have left to write
+            //always going to be total number (length) minus
+            //number we just wrote (position)
+            bitsLeft = lengths[i] - position;
+            while(bitsLeft > 0){
+                if(bitsLeft > 8){
+                    mask = makeBitmask(8);
+
+                    //write out 8 bits and start with a new byte
+                    b |= (bCodeList[i] >> (bitsLeft - 8));
+                    fwrite(&b, 1, 1, fptOut);
+                    b = 0x0;
+                    //new position
+                    bitsLeft -= 8;
+                    position = 8;
+                } else {
+                    b |= (bCodeList[i] << (8 - bitsLeft));
+                    position = 8 - bitsLeft;
+                    bitsLeft = 0;
+                }
+            }
         }
 
 
@@ -265,18 +307,113 @@ void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, uns
     fwrite(&b, 1, 1, fptOut);
 }
 
-unsigned char makeBitmask(int length){
+unsigned int makeBitmask(int length){
     int i;
-    char c=0;
+    int c=0;
 
     for(i=0; i<length; i++){
-        c &= 1<<i;
+        c |= 1<<i;
     }
     return c;
 }
 
 void decompress(FILE *fptIn, FILE *fptOut){
     int i;
+    int *lengths;
+    unsigned char *codeList;
+    unsigned char *symbolList;
+    int numCodes;
+    char c;
+    char b;
+    int mask;
+    int position;
 
-    for(i=0;i<1000; i++) printf("I forgot to do this lol\t");
+    //read in the header
+    fread(&numCodes, sizeof(int), 1, fptIn);
+    symbolList = (unsigned char *) calloc(numCodes, sizeof(unsigned char));
+    lengths = (int *) calloc(numCodes, sizeof(int));
+    codeList = (unsigned char *) calloc(numCodes, sizeof(unsigned char));
+    for(i=0; i<numCodes; i++){
+        fread((symbolList+i), sizeof(unsigned char), 1, fptIn);
+        fread((lengths+i), sizeof(int), 1, fptIn);
+        fread((codeList+i), sizeof(char), 1, fptIn);
+    }
+
+    //shiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiit
+    position = 8;
+    while(fread(&c, 1, 1, fptIn) == 1){
+        for(i=1; i<8; i++){
+            mask = makeBitmask(i);
+            b = c & (mask << (position - i));
+            b >>= (position - i);
+            if(inCodeList(b, codeList, numCodes, mask) >= 0) break;
+        }
+    }
+
+
+
+    for(i=0;i<1000; i++) printf("Not done yet lol\t");
+}
+
+//returns index of code if in list
+//returns -1 otherwise
+int inCodeList(char code, unsigned char *codeList, int numCodes, char mask){
+    int i;
+    for(i=0;i<numCodes;i++){
+        if((codeList[i] & mask) == code) return i;
+    }
+    return -1;
+}
+
+
+int _print_t(t_node *tree, int is_left, int offset, int depth, char s[20][255]){
+    char b[20];
+    int width = 5;
+
+    if (!tree) return 0;
+
+    //if(tree->left == NULL && tree->right == NULL){
+    //    sprintf(b, "(%d_%d)", (int)tree->symb, tree->freq);
+    //} else {
+        sprintf(b, "(%03d)", tree->freq);
+    //}
+
+    int left  = _print_t(tree->left,  1, offset,                depth + 1, s);
+    int right = _print_t(tree->right, 0, offset + left + width, depth + 1, s);
+
+
+    for (int i = 0; i < width; i++)
+        s[2 * depth][offset + left + i] = b[i];
+
+    if (depth && is_left) {
+
+        for (int i = 0; i < width + right; i++)
+            s[2 * depth - 1][offset + left + width/2 + i] = '-';
+
+        s[2 * depth - 1][offset + left + width/2] = '+';
+        s[2 * depth - 1][offset + left + width + right + width/2] = '+';
+
+    } else if (depth && !is_left) {
+
+        for (int i = 0; i < left + width; i++)
+            s[2 * depth - 1][offset - width/2 + i] = '-';
+
+        s[2 * depth - 1][offset + left + width/2] = '+';
+        s[2 * depth - 1][offset - width/2 - 1] = '+';
+    }
+
+    return left + width + right;
+}
+
+int print_t(t_node *tree){
+    char s[20][255];
+    for (int i = 0; i < 20; i++)
+        sprintf(s[i], "%80s", " ");
+
+    _print_t(tree, 0, 0, 0, s);
+
+    for (int i = 0; i < 20; i++)
+        printf("%s\n", s[i]);
+
+    return 420;
 }
