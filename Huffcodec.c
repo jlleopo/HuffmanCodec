@@ -242,7 +242,7 @@ void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, uns
     lengths = (int *) calloc(numCodes, sizeof(int));
     bCodeList = (unsigned int *) calloc(numCodes, sizeof(unsigned int));
     for(i=0; i<numCodes; i++){
-        fprintf(debug, "%d - %s\n", symbolList[i], codeList[i] );
+        fprintf(debug, "%3d - %19s\n", symbolList[i], codeList[i] );
 
         lengths[i] = strlen(codeList[i]);
         bCodeList[i] = (int) strtol(codeList[i], NULL, 2);
@@ -331,7 +331,7 @@ unsigned int makeBitmask(int length){
 }
 
 unsigned long int calculateNumBits(int *lengths, unsigned char *symbolList, FILE *fptIn){
-    char c;
+    unsigned char c;
     unsigned long int count = 0;
     int i;
 
