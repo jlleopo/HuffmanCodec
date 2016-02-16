@@ -20,8 +20,6 @@ void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, uns
 unsigned int makeBitmask(int length);
 unsigned long int calculateNumBits(int *lengths, unsigned char *symbolList, FILE *fptIn);
 
-int print_t(t_node *tree);
-
 
 void decompress(FILE *fptIn, FILE *fptOut);
 int inCodeList(int code, int codeLen, unsigned int *codeList, int *lengths, int numCodes);
@@ -120,8 +118,6 @@ void compress(FILE *fptIn, FILE *fptOut){
     symbolList = (unsigned char *) calloc(len, sizeof(unsigned char));
     i=0;
     formCodes(ptrees[0], currentCode, codeList, symbolList, &i);
-
-    if(len<10) print_t(ptrees[0]);
 
     writeOutCodes(fptIn, fptOut, codeList, len, symbolList);
 
@@ -236,14 +232,9 @@ void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, uns
     unsigned int *bCodeList;
     unsigned long int totalNumBits;
 
-
-    FILE *debug = fopen("debugOutput.txt", "wb");
-
     lengths = (int *) calloc(numCodes, sizeof(int));
     bCodeList = (unsigned int *) calloc(numCodes, sizeof(unsigned int));
     for(i=0; i<numCodes; i++){
-        fprintf(debug, "%3d - %19s\n", symbolList[i], codeList[i] );
-
         lengths[i] = strlen(codeList[i]);
         bCodeList[i] = (int) strtol(codeList[i], NULL, 2);
     }
@@ -260,8 +251,6 @@ void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, uns
         fwrite((lengths+i), sizeof(int), 1, fptOut);
         fwrite((bCodeList+i), sizeof(unsigned int), 1, fptOut);
     }
-
-    fprintf(debug, "\n\n%lu", totalNumBits );
 
     fptIn = freopen(NULL, "rb", fptIn);
     position = 8;
@@ -412,57 +401,4 @@ int inCodeList(int code, int codeLen, unsigned int *codeList, int *lengths, int 
         if(codeLen==lengths[i] && codeList[i]==code) return i;
     }
     return -1;
-}
-
-
-int _print_t(t_node *tree, int is_left, int offset, int depth, char s[20][255]){
-    char b[20];
-    int width = 5;
-
-    if (!tree) return 0;
-
-    //if(tree->left == NULL && tree->right == NULL){
-    //    sprintf(b, "(%d_%d)", (int)tree->symb, tree->freq);
-    //} else {
-        sprintf(b, "(%03d)", tree->freq);
-    //}
-
-    int left  = _print_t(tree->left,  1, offset,                depth + 1, s);
-    int right = _print_t(tree->right, 0, offset + left + width, depth + 1, s);
-
-
-    for (int i = 0; i < width; i++)
-        s[2 * depth][offset + left + i] = b[i];
-
-    if (depth && is_left) {
-
-        for (int i = 0; i < width + right; i++)
-            s[2 * depth - 1][offset + left + width/2 + i] = '-';
-
-        s[2 * depth - 1][offset + left + width/2] = '+';
-        s[2 * depth - 1][offset + left + width + right + width/2] = '+';
-
-    } else if (depth && !is_left) {
-
-        for (int i = 0; i < left + width; i++)
-            s[2 * depth - 1][offset - width/2 + i] = '-';
-
-        s[2 * depth - 1][offset + left + width/2] = '+';
-        s[2 * depth - 1][offset - width/2 - 1] = '+';
-    }
-
-    return left + width + right;
-}
-
-int print_t(t_node *tree){
-    char s[20][255];
-    for (int i = 0; i < 20; i++)
-        sprintf(s[i], "%80s", " ");
-
-    _print_t(tree, 0, 0, 0, s);
-
-    for (int i = 0; i < 20; i++)
-        printf("%s\n", s[i]);
-
-    return 420;
 }
