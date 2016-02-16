@@ -18,12 +18,13 @@ void sortTrees(t_node **trees, int len);
 void formCodes(t_node *node, char *currentCode, char **codeList, unsigned char *symbolList, int *i);
 void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, unsigned char *symbolList);
 unsigned int makeBitmask(int length);
+unsigned long int calculateNumBits(int *lengths, unsigned char *symbolList, FILE *fptIn);
 
 int print_t(t_node *tree);
 
 
 void decompress(FILE *fptIn, FILE *fptOut);
-int inCodeList(char code, unsigned char *codeList, int numCodes, int mask);
+int inCodeList(int code, int codeLen, unsigned int *codeList, int *lengths, int numCodes);
 
 int main(int argc, char *argv[]){
     FILE *fptIn;
@@ -233,22 +234,34 @@ void writeOutCodes(FILE *fptIn, FILE *fptOut, char **codeList, int numCodes, uns
     unsigned char b = 0; //output byte
     unsigned int mask;
     unsigned int *bCodeList;
+    unsigned long int totalNumBits;
 
+
+    FILE *debug = fopen("debugOutput.txt", "wb");
 
     lengths = (int *) calloc(numCodes, sizeof(int));
     bCodeList = (unsigned int *) calloc(numCodes, sizeof(unsigned int));
     for(i=0; i<numCodes; i++){
+        fprintf(debug, "%d - %s\n", symbolList[i], codeList[i] );
+
         lengths[i] = strlen(codeList[i]);
         bCodeList[i] = (int) strtol(codeList[i], NULL, 2);
     }
 
+
+
     //write out a header
     fwrite(&numCodes, sizeof(int), 1, fptOut);
+    //write out number of bits
+    totalNumBits = calculateNumBits(lengths, symbolList, fptIn);
+    fwrite(&totalNumBits, sizeof(long int), 1, fptOut);
     for(i=0; i<numCodes; i++){
         fwrite((symbolList+i), sizeof(unsigned char), 1, fptOut);
         fwrite((lengths+i), sizeof(int), 1, fptOut);
-        fwrite((bCodeList+i), sizeof(char), 1, fptOut);
+        fwrite((bCodeList+i), sizeof(unsigned int), 1, fptOut);
     }
+
+    fprintf(debug, "\n\n%lu", totalNumBits );
 
     fptIn = freopen(NULL, "rb", fptIn);
     position = 8;
@@ -317,50 +330,86 @@ unsigned int makeBitmask(int length){
     return c;
 }
 
+unsigned long int calculateNumBits(int *lengths, unsigned char *symbolList, FILE *fptIn){
+    char c;
+    unsigned long int count = 0;
+    int i;
+
+    fptIn = freopen(NULL, "rb", fptIn);
+    while(fread(&c, 1, 1, fptIn) == 1){
+        for(i=0; lengths[i]!=0; i++){
+            if(symbolList[i] == c) break;
+        }
+        count += lengths[i];
+    }
+
+    return count;
+}
+
 void decompress(FILE *fptIn, FILE *fptOut){
     int i;
     int *lengths;
-    unsigned char *codeList;
+    unsigned int *codeList;
     unsigned char *symbolList;
     int numCodes;
     char c;
-    char b;
-    int mask;
+    int code;
+    int codeLen;
+    //int mask;
+    unsigned long int totalNumBits;
+    unsigned long int currNumBits=0;
     int position;
+    int index;
+    int maxLen = 0;
 
     //read in the header
     fread(&numCodes, sizeof(int), 1, fptIn);
+    fread(&totalNumBits, sizeof(long int), 1, fptIn);
     symbolList = (unsigned char *) calloc(numCodes, sizeof(unsigned char));
     lengths = (int *) calloc(numCodes, sizeof(int));
-    codeList = (unsigned char *) calloc(numCodes, sizeof(unsigned char));
+    codeList = (unsigned int *) calloc(numCodes, sizeof(unsigned int));
     for(i=0; i<numCodes; i++){
         fread((symbolList+i), sizeof(unsigned char), 1, fptIn);
         fread((lengths+i), sizeof(int), 1, fptIn);
-        fread((codeList+i), sizeof(char), 1, fptIn);
+        if(lengths[i] > maxLen) maxLen = lengths[i];
+        fread((codeList+i), sizeof(unsigned int), 1, fptIn);
     }
 
     //shiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiit
+    fread(&c, 1, 1, fptIn);
     position = 8;
-    while(fread(&c, 1, 1, fptIn) == 1){
-        for(i=1; i<8; i++){
-            mask = makeBitmask(i);
-            b = c & (mask << (position - i));
-            b >>= (position - i);
-            if(inCodeList(b, codeList, numCodes, mask) >= 0) break;
-        }
+    while(currNumBits < totalNumBits){
+            //grab one bit at a time
+            //shift our entire current code 1 bit to the left
+            //add that bit to the start of our code
+            //check if it's in the dictionary
+            code = 0;
+            codeLen = 0;
+            do{
+                code <<= 1;
+                code |= (c & (1 << (position-1))) >> (position-1);
+                position --;
+                currNumBits++;
+                codeLen++;
+
+                if(position == 0){
+                    fread(&c, 1, 1, fptIn);
+                    position = 8;
+                }
+            } while((index = inCodeList(code, codeLen, codeList, lengths, numCodes)) < 0);
+
+
+            fwrite((symbolList+index), 1, 1, fptOut);
     }
 
-
-
-    for(i=0;i<1000; i++) printf("Not done yet lol\t");
 }
 
 //returns index of code if in list
 //returns -1 otherwise
-int inCodeList(char code, unsigned char *codeList, int numCodes, char mask){
+int inCodeList(int code, int codeLen, unsigned int *codeList, int *lengths, int numCodes){
     int i;
     for(i=0;i<numCodes;i++){
-        if((codeList[i] & mask) == code) return i;
+        if(codeLen==lengths[i] && codeList[i]==code) return i;
     }
     return -1;
 }
